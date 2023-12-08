@@ -9,7 +9,7 @@ import logging
 from tqdm import tqdm
 
 from model import DeepTensorFactorization
-from dataset import get_dataloader
+from dataset_embedding import get_dataloader
 from utils import set_seed, get_cell_type_compound_gene, compute_mrrmse
 
 logging.basicConfig(
