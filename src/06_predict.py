@@ -147,7 +147,7 @@ def main():
 
     # get average submission
     df_avg_submission = sum(df_submission_list) / len(df_submission_list)
-    df_avg_submission.to_csv(f"{args.submission_dir}/avg_valid_mrrmse_{avg_valid_mrrmse}.csv")
+    df_avg_submission.to_csv(f"{args.submission_dir}/avg_valid_mrrmse_{avg_valid_mrrmse:.03f}.csv")
 
 
 if __name__ == "__main__":

@@ -7,7 +7,7 @@ import warnings
 import torch
 import logging
 from tqdm import tqdm
-
+from torch.utils.tensorboard import SummaryWriter
 from model import DeepTensorFactorization
 from dataset_embedding import get_dataloader
 from utils import set_seed, get_cell_type_compound_gene, compute_mrrmse
@@ -29,7 +29,7 @@ def parse_args():
         "--de_train",
         type=str,
         default=None,
-        help=("String of filname for de_train.parquet."),
+        help=("Filname for de_train.parquet."),
     )
 
     parser.add_argument(
@@ -41,7 +41,7 @@ def parse_args():
 
     # parameters for model training
     parser.add_argument(
-        "--batch_size", default=50000, type=int, help="Batch size. Default 5000"
+        "--batch_size", default=5000, type=int, help="Batch size. Default 5000"
     )
     parser.add_argument(
         "--epochs",
@@ -68,6 +68,12 @@ def parse_args():
         type=str,
         default=None,
         help=("Output name"),
+    )
+    parser.add_argument(
+        "--log_dir",
+        type=str,
+        default=None,
+        help="Directory for saving log",
     )
     return parser.parse_args()
 
@@ -150,16 +156,19 @@ def main():
 
     # Setup loss and optimizer
     criterion = torch.nn.MSELoss()
-    optimizer = torch.optim.AdamW(
+    optimizer = torch.optim.Adam(
         [param for param in model.parameters() if param.requires_grad == True],
         lr=args.lr,
         weight_decay=1e-4,
     )
 
     logging.info(f"Training started")
-    model_path = os.path.join(args.out_dir, f"{args.out_name}.pth")
-    loss_list, mrrmse_list = [], []
     
+    # create log folder
+    os.makedirs(args.log_dir, exist_ok=True)
+    log_dir = os.path.join(args.log_dir, f"{args.out_name}")
+    tb_writer = SummaryWriter(log_dir=log_dir)
+
     for epoch in tqdm(range(args.epochs)):
         train_loss, train_mrrmse = train(
             dataloader=train_loader,
@@ -169,22 +178,20 @@ def main():
             device=device,
         )
 
+        tb_writer.add_scalar("Training loss", train_loss, epoch)
+        tb_writer.add_scalar("Trianing MRRMSE", train_mrrmse, epoch)
+
         state = {
             "state_dict": model.state_dict(),
             "train_loss": train_loss,
             "train_mrrmse": train_mrrmse,
             "epoch": epoch,
         }
-        torch.save(state, model_path)
+        model_path = os.path.join(args.out_dir, f"{args.out_name}_epoch_{epoch}.pth")
         
-        loss_list.append(train_loss)
-        mrrmse_list.append(train_mrrmse)
+        torch.save(state, model_path)
 
     logging.info(f"Training finished")
-    
-    log_file = os.path.join(args.out_dir, f"{args.out_name}_log.csv")
-    df = pd.DataFrame(data={'Loss': loss_list, 'MRRMSE': mrrmse_list})
-    df.to_csv(log_file)
 
 
 if __name__ == "__main__":
